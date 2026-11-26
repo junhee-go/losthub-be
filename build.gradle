@@ -5,6 +5,12 @@ plugins {
 group = 'losthub'
 version = '1.0-SNAPSHOT'
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
 repositories {
     mavenCentral()
 }
@@ -15,6 +21,41 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-test {
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+tasks.withType(Javadoc).configureEach {
+    options.encoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    options.docEncoding = 'UTF-8'
+    failOnError = true
+}
+
+tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.register('fatJar', Jar) {
+    group = 'build'
+    description = 'Builds a JAR containing all runtime dependencies.'
+    archiveFileName = 'losthub-be-all.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.collect { dependency ->
+            dependency.isDirectory() ? dependency : zipTree(dependency)
+        }
+    }
+
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+}
+
+tasks.register('verifyLostHubBe') {
+    group = 'verification'
+    description = 'Runs tests, generates Javadoc, and builds the Fat JAR.'
+    dependsOn tasks.named('test'), tasks.named('javadoc'), tasks.named('fatJar')
 }
